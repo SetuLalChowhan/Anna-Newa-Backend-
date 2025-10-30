@@ -406,15 +406,16 @@ export const updateProfilePicture = async (req, res) => {
     }
 
     const user = await User.findById(req.user.id);
-
-    // Delete old image if exists
+    
+    // Upload to Cloudinary
+    const result = await uploadToCloudinary(req.file.buffer);
+    
+    // Delete old image
     if (user.profilePicture?.public_id) {
       await deleteFromCloudinary(user.profilePicture.public_id);
     }
-
-    // Upload new image
-    const result = await uploadToCloudinary(req.file.buffer);
-
+    
+    // Update user
     user.profilePicture = {
       public_id: result.public_id,
       url: result.secure_url,
@@ -426,6 +427,7 @@ export const updateProfilePicture = async (req, res) => {
       message: 'Profile picture updated',
       profilePicture: user.profilePicture,
     });
+
   } catch (error) {
     res.status(500).json({
       success: false,
