@@ -27,7 +27,7 @@ const userSchema = new mongoose.Schema(
       zipCode: String,
       country: {
         type: String,
-        default: "India",
+        default: "Bangladesh",
       },
     },
     role: {
