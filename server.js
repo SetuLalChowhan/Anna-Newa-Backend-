@@ -3,6 +3,7 @@ import "dotenv/config";
 import cookieParser from "cookie-parser";
 import connectDatabase from "./config/database.js";
 import authRoute from "./routes/auth.js";
+import productRoute from "./routes/product.js";
 
 // Load env vars
 
@@ -19,6 +20,7 @@ app.use(cookieParser());
 
 // Routes
 app.use("/api/auth", authRoute);
+app.use("/api/product", productRoute);
 
 // Health check
 
