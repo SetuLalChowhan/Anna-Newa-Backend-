@@ -361,59 +361,7 @@ export const deleteMyProduct = async (req, res) => {
   }
 };
 
-// @desc    Place a bid
-// @route   POST /api/products/:id/bid
-// @access  Both buyer & seller (but not on own products)
-export const placeBid = async (req, res) => {
-  try {
-    const { bidAmount } = req.body;
-    const product = await Product.findById(req.params.id);
 
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: 'Product not found'
-      });
-    }
-
-    if (product.status !== 'active') {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot bid on inactive product'
-      });
-    }
-
-    if (product.user.toString() === req.user.id) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot bid on your own product'
-      });
-    }
-
-    console.log(bidAmount)
-
-    product.bids.push({
-      user: req.user.id,
-      bidAmount: Number(bidAmount),
-      bidAt: new Date()
-    });
-
-    await product.save();
-    await product.populate('bids.user', 'name email' ,'phone');
-
-    res.json({
-      success: true,
-      message: 'Bid placed successfully',
-      product
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-};
 // @desc    Get all products (Admin)
 // @route   GET /api/products/admin/all
 // @access  Admin only
@@ -470,6 +418,337 @@ export const getAdminProducts = async (req, res) => {
         hasNext: pageNum < Math.ceil(total / limitNum),
         hasPrev: pageNum > 1
       }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+
+
+export const placeBid = async (req, res) => {
+  try {
+    const { bidAmount } = req.body;
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+
+    if (product.status !== 'active') {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot bid on inactive product'
+      });
+    }
+
+    if (product.user.toString() === req.user.id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot bid on your own product'
+      });
+    }
+
+    // Check if user already placed a bid
+    const existingBid = product.bids.find(bid => 
+      bid.user.toString() === req.user.id && bid.status === 'pending'
+    );
+
+    if (existingBid) {
+      return res.status(400).json({
+        success: false,
+        message: 'You already have a pending bid on this product'
+      });
+    }
+
+    // Add bid
+    product.bids.push({
+      user: req.user.id,
+      bidAmount: Number(bidAmount),
+      bidAt: new Date(),
+      status: 'pending'
+    });
+
+    await product.save();
+    await product.populate('bids.user', 'name email');
+
+    res.json({
+      success: true,
+      message: 'Bid placed successfully',
+      product
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Accept a bid (Product Owner)
+// @route   PUT /api/products/:productId/accept-bid/:bidId
+// @access  Product Owner only
+export const acceptBid = async (req, res) => {
+  try {
+    const { productId, bidId } = req.params;
+    
+    const product = await Product.findById(productId);
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+
+    // Check if user owns the product
+    if (product.user.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to accept bids for this product'
+      });
+    }
+
+    // Find the bid
+    const bid = product.bids.id(bidId);
+    if (!bid) {
+      return res.status(404).json({
+        success: false,
+        message: 'Bid not found'
+      });
+    }
+
+    // Update all bids status
+    product.bids.forEach(b => {
+      if (b._id.toString() === bidId) {
+        b.status = 'accepted';
+      } else {
+        b.status = 'rejected';
+      }
+    });
+
+    // Set bid winner and mark product as sold
+    product.bidWinner = {
+      user: bid.user,
+      bidAmount: bid.bidAmount,
+      acceptedAt: new Date()
+    };
+    product.status = 'sold';
+    product.soldAt = new Date();
+
+    await product.save();
+    
+    // Populate all data for response
+    await product.populate('user', 'name email phone');
+    await product.populate('bids.user', 'name email');
+    await product.populate('bidWinner.user', 'name email phone');
+
+    res.json({
+      success: true,
+      message: 'Bid accepted successfully. Product marked as sold.',
+      product
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Get my bidding history
+// @route   GET /api/products/my-bids
+// @access  Private (both roles)
+// @desc    Get my bidding history
+// @route   GET /api/products/my-bids/history
+// @access  Private (both roles)
+export const getMyBids = async (req, res) => {
+  try {
+    const { status, page = 1, limit = 10 } = req.query;
+    
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Find products where user has placed bids
+    const query = { 
+      'bids.user': req.user.id 
+    };
+
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+
+    const products = await Product.find(query)
+      .populate('user', 'name email phone address')
+      .populate('bids.user', 'name email')
+      .populate('bidWinner.user', 'name email')
+      .sort({ createdAt: -1 })
+      .limit(limitNum)
+      .skip(skip);
+
+    // Filter and format bids for the current user - SAFELY
+    const biddingHistory = products.map(product => {
+      // Safely filter user's bids
+      const userBids = product.bids.filter(bid => {
+        // Check if bid.user exists and has _id
+        return bid.user && bid.user._id && bid.user._id.toString() === req.user.id;
+      });
+      
+      if (userBids.length === 0) return null; // Skip if no valid bids found
+
+      const latestBid = userBids[userBids.length - 1]; // Get latest bid
+      
+      // Safely check if user is winner
+      const isWinner = product.bidWinner && 
+                      product.bidWinner.user &&
+                      product.bidWinner.user._id &&
+                      product.bidWinner.user._id.toString() === req.user.id;
+
+      return {
+        product: {
+          _id: product._id,
+          title: product.title,
+          slug: product.slug,
+          images: product.images,
+          pricePerKg: product.pricePerKg,
+          totalWeight: product.totalWeight,
+          status: product.status,
+          user: product.user
+        },
+        myBid: latestBid,
+        allMyBids: userBids,
+        isWinner: isWinner,
+        bidWinner: product.bidWinner,
+        totalBidsOnProduct: product.bids.length
+      };
+    }).filter(item => item !== null); // Remove null entries
+
+    const total = await Product.countDocuments(query);
+
+    res.json({
+      success: true,
+      biddingHistory,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+        totalProducts: total
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in getMyBids:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Get products where I won bids
+// @route   GET /api/products/my-wins
+// @access  Private (both roles)
+export const getMyWins = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Find products where user is the bid winner
+    const query = { 
+      'bidWinner.user': req.user.id,
+      status: 'sold'
+    };
+
+    console.log(query)
+
+    const products = await Product.find(query)
+      .populate('user', 'name email phone address')
+      .populate('bidWinner.user', 'name email phone')
+      .sort({ soldAt: -1 })
+      .limit(limitNum)
+      .skip(skip);
+
+    const total = await Product.countDocuments(query);
+
+    res.json({
+      success: true,
+      wonProducts: products,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+        totalWins: total
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Get product with bids details
+// @route   GET /api/products/:id/with-bids
+// @access  Private (product owner or bidders)
+export const getProductWithBids = async (req, res) => {
+  try {
+    let product;
+    
+    if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+      product = await Product.findById(req.params.id)
+        .populate('user', 'name email phone address')
+        .populate('bids.user', 'name email phone')
+        .populate('bidWinner.user', 'name email phone');
+    } else {
+      product = await Product.findOne({ slug: req.params.id })
+        .populate('user', 'name email phone address')
+        .populate('bids.user', 'name email phone')
+        .populate('bidWinner.user', 'name email phone');
+    }
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+
+    // Check if user can view bids (owner or someone who bid)
+    const canViewBids = product.user._id.toString() === req.user.id || 
+                       product.bids.some(bid => bid.user._id.toString() === req.user.id);
+
+    if (!canViewBids) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to view bids for this product'
+      });
+    }
+
+    // Get user's bid if any
+    const myBid = product.bids.find(bid => 
+      bid.user._id.toString() === req.user.id
+    );
+
+    res.json({
+      success: true,
+      product,
+      myBid: myBid || null,
+      canAcceptBids: product.user._id.toString() === req.user.id
     });
 
   } catch (error) {

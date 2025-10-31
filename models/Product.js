@@ -63,6 +63,11 @@ const productSchema = new mongoose.Schema({
     bidAt: {
       type: Date,
       default: Date.now
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'accepted', 'rejected'],
+      default: 'pending'
     }
   }],
   user: {
@@ -83,6 +88,17 @@ const productSchema = new mongoose.Schema({
   expiryDate: {
     type: Date,
     required: true
+  },
+  bidWinner: {
+    user: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'User'
+    },
+    bidAmount: Number,
+    acceptedAt: Date
+  },
+  soldAt: {
+    type: Date
   }
 }, {
   timestamps: true
@@ -103,5 +119,6 @@ productSchema.pre('save', function(next) {
 productSchema.index({ title: 'text', description: 'text' });
 productSchema.index({ user: 1 });
 productSchema.index({ status: 1 });
+productSchema.index({ 'bids.user': 1 });
 
 export default mongoose.model('Product', productSchema);
