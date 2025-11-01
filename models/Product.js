@@ -68,6 +68,33 @@ const productSchema = new mongoose.Schema({
       type: String,
       enum: ['pending', 'accepted', 'rejected'],
       default: 'pending'
+    },
+    deliveryAddress: {
+      address: {
+        type: String,
+        required: true
+      },
+      city: {
+        type: String,
+        required: true
+      },
+      state: {
+        type: String,
+        required: true
+      },
+      zipCode: {
+        type: String,
+        required: true
+      },
+      country: {
+        type: String,
+        default: 'India'
+      }
+    },
+    paymentMethod: {
+      type: String,
+      enum: ['Cash on Delivery', 'Bank Transfer', 'UPI', 'Card'],
+      default: 'Cash on Delivery'
     }
   }],
   user: {
@@ -75,9 +102,19 @@ const productSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  userRole: {
+    type: String,
+    enum: ['seller', 'buyer'],
+    required: true
+  },
+  postType: {
+    type: String,
+    enum: ['sell', 'buy'],
+    required: true
+  },
   status: {
     type: String,
-    enum: ['active', 'sold', 'expired'],
+    enum: ['active', 'sold', 'expired', 'cancelled', 'purchased'],
     default: 'active'
   },
   category: {
@@ -99,6 +136,10 @@ const productSchema = new mongoose.Schema({
   },
   soldAt: {
     type: Date
+  },
+  companyRevenue: {
+    type: Number,
+    default: 0
   }
 }, {
   timestamps: true
@@ -114,11 +155,5 @@ productSchema.pre('save', function(next) {
   }
   next();
 });
-
-// Index for search
-productSchema.index({ title: 'text', description: 'text' });
-productSchema.index({ user: 1 });
-productSchema.index({ status: 1 });
-productSchema.index({ 'bids.user': 1 });
 
 export default mongoose.model('Product', productSchema);

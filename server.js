@@ -4,9 +4,9 @@ import cookieParser from "cookie-parser";
 import connectDatabase from "./config/database.js";
 import authRoute from "./routes/auth.js";
 import productRoute from "./routes/product.js";
+import OrderRoute from "./routes/order.js";
 
 // Load env vars
-
 
 // Connect to database
 connectDatabase();
@@ -21,6 +21,7 @@ app.use(cookieParser());
 // Routes
 app.use("/api/auth", authRoute);
 app.use("/api/product", productRoute);
+app.use("/api/order", OrderRoute);
 
 // Health check
 

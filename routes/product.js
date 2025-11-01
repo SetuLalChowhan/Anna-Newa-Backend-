@@ -7,15 +7,12 @@ import {
   getProduct,
   updateMyProduct,
   deleteMyProduct,
-  placeBid,
+
   getAdminProducts,
 } from "../controllers/productController.js";
 import { protect, authorize } from "../middleware/auth.js";
 import upload from "../middleware/upload.js";
-import { acceptBid } from "../controllers/productController.js";
-import { getMyBids } from "../controllers/productController.js";
-import { getMyWins } from "../controllers/productController.js";
-import { getProductWithBids } from "../controllers/productController.js";
+import { acceptBid, getMyBids, getMyWins, getProductWithBids, placeBid } from "../controllers/bidController.js";
 
 const router = express.Router();
 
