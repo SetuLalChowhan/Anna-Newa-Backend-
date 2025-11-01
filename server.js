@@ -5,6 +5,7 @@ import connectDatabase from "./config/database.js";
 import authRoute from "./routes/auth.js";
 import productRoute from "./routes/product.js";
 import OrderRoute from "./routes/order.js";
+import AdminRouter from './routes/admin.js'
 
 // Load env vars
 
@@ -22,6 +23,7 @@ app.use(cookieParser());
 app.use("/api/auth", authRoute);
 app.use("/api/product", productRoute);
 app.use("/api/order", OrderRoute);
+app.use("/api/admin", AdminRouter);
 
 // Health check
 

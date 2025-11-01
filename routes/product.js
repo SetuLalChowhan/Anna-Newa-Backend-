@@ -23,7 +23,6 @@ router.post("/", protect, upload.array("images", 5), createProduct);
 router.get("/for-buyer", protect, authorize("buyer"), getProductsForBuyer);
 router.get("/for-seller", protect, authorize("seller"), getProductsForSeller);
 router.get("/my-products", protect, getMyProducts);
-router.get("/admin/all", protect, authorize("admin"), getAdminProducts);
 router.get("/my-wins", protect, getMyWins);
 router.get("/my-bids/history", protect, getMyBids);
 router.put(

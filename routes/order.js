@@ -19,8 +19,8 @@ const router = express.Router();
 // ✅ FIXED: Put ADMIN routes BEFORE parameter routes
 // Admin only routes
 router.get('/admin/all', protect, authorize('admin'), getAllOrders);
-router.get('/admin/stats', protect, authorize('admin'), getOrderStats);
-router.delete('/admin/:orderId', protect, authorize('admin'), deleteOrder);
+
+
 
 // Protected routes - Order management
 // router.post('/create-from-bid', protect, createOrderFromBid);
