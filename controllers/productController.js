@@ -186,6 +186,7 @@ export const getAllProducts = async (req, res) => {
       userId,
       page = 1,
       limit = 10,
+      sort = "latest", // <-- new sort parameter
     } = req.query;
 
     const pageNum = parseInt(page);
@@ -214,24 +215,25 @@ export const getAllProducts = async (req, res) => {
       query.postType = postType;
     }
 
+    // Determine sort
+    let sortOption = { createdAt: -1 }; // default: latest
+    if (sort === "oldest") {
+      sortOption = { createdAt: 1 };
+    } else if (sort === "highestPrice") {
+      sortOption = { pricePerKg: -1 };
+    } else if (sort === "lowestPrice") {
+      sortOption = { pricePerKg: 1 };
+    }
+
     const products = await Product.find(query)
-      .populate("user", "name email role")
-      .populate("bidWinner.user", "name email")
-      .sort({ createdAt: -1 })
+      .select("title description pricePerKg totalWeight images category")
+      .sort(sortOption)
       .limit(limitNum)
       .skip(skip);
 
     const total = await Product.countDocuments(query);
 
-    // Product statistics
-    const productStats = await Product.aggregate([
-      {
-        $group: {
-          _id: "$status",
-          count: { $sum: 1 },
-        },
-      },
-    ]);
+  
 
     res.json({
       success: true,
