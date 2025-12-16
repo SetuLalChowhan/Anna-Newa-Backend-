@@ -5,6 +5,7 @@ import cors from "cors";
 import connectDatabase from "./config/database.js";
 import authRoute from "./routes/auth.js";
 import productRoute from "./routes/product.js";
+import  categoryRoutes from "./routes/categoryRoutes.js"
 import OrderRoute from "./routes/order.js";
 import AdminRouter from "./routes/admin.js";
 
@@ -28,6 +29,7 @@ app.use(cookieParser());
 
 app.use("/api/auth", authRoute);
 app.use("/api/product", productRoute);
+app.use('/api/categories', categoryRoutes);
 app.use("/api/order", OrderRoute);
 app.use("/api/admin", AdminRouter);
 

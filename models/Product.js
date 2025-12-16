@@ -117,10 +117,10 @@ const productSchema = new mongoose.Schema({
     enum: ['active', 'sold', 'expired', 'cancelled', 'purchased'],
     default: 'active'
   },
-  category: {
-    type: String,
-    enum: ['vegetables', 'fruits', 'grains', 'dairy', 'poultry', 'other'],
-    default: 'other'
+ category: {
+    type: mongoose.Schema.ObjectId,
+    ref: 'Category',
+    required: true
   },
   expiryDate: {
     type: Date,

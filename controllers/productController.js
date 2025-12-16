@@ -87,6 +87,7 @@ export const getMyProducts = async (req, res) => {
 
     const products = await Product.find(query)
       .populate("bids.user", "name email")
+      .populate("category", "name" )
       .sort({ createdAt: -1 })
       .limit(limitNum)
       .skip(skip);
@@ -207,7 +208,9 @@ export const getAllProducts = async (req, res) => {
 
     // Filter by category
     if (category && category !== "all") {
-      query.category = category;
+     if (mongoose.Types.ObjectId.isValid(category)) {
+        query.category = new mongoose.Types.ObjectId(category);
+      }
     }
 
     // Filter by post type
@@ -227,6 +230,7 @@ export const getAllProducts = async (req, res) => {
 
     const products = await Product.find(query)
       .select("title description pricePerKg totalWeight images category")
+      .populate("category", "name" )
       .sort(sortOption)
       .limit(limitNum)
       .skip(skip);
@@ -326,6 +330,7 @@ export const getProduct = async (req, res) => {
 
     product = await Product.findOne({ slug: req.params.slug })
       .populate("user", "name email phone address role")
+      .populate("category", "name" )
       .populate("bids.user", "name email");
 
     if (!product) {
@@ -473,6 +478,7 @@ export const getAdminProducts = async (req, res) => {
     const products = await Product.find(query)
       .populate("user", "name email role")
       .populate("bids.user", "name email")
+      .populate("category", "name" )
       .sort({ createdAt: -1 })
       .limit(limitNum)
       .skip(skip);
