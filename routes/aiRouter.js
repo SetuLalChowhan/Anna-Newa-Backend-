@@ -1,5 +1,5 @@
 import express from "express";
-import { streamChatWithAI, getChatHistory } from "../controllers/aiController.js";
+import {  chatWithAI, getChatHistory } from "../controllers/aiController.js";
 import { protect } from "../middleware/auth.js";
 
 const router = express.Router();
@@ -8,7 +8,7 @@ const router = express.Router();
 router.use(protect);
 
 // Streaming AI chat
-router.post("/chat/stream", streamChatWithAI);
+router.post("/chat", chatWithAI );
 
 // Get chat history for logged-in user
 router.get("/chat/history", getChatHistory);
