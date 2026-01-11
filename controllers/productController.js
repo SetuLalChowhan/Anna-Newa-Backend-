@@ -87,7 +87,7 @@ export const getMyProducts = async (req, res) => {
 
     const products = await Product.find(query)
       .populate("bids.user", "name email")
-      .populate("category", "name" )
+      .populate("category", "name")
       .sort({ createdAt: -1 })
       .limit(limitNum)
       .skip(skip);
@@ -208,7 +208,7 @@ export const getAllProducts = async (req, res) => {
 
     // Filter by category
     if (category && category !== "all") {
-     if (mongoose.Types.ObjectId.isValid(category)) {
+      if (mongoose.Types.ObjectId.isValid(category)) {
         query.category = new mongoose.Types.ObjectId(category);
       }
     }
@@ -229,15 +229,13 @@ export const getAllProducts = async (req, res) => {
     }
 
     const products = await Product.find(query)
-      .select("title description pricePerKg totalWeight images category")
-      .populate("category", "name" )
+      .select("title description slug pricePerKg totalWeight images category")
+      .populate("category", "name")
       .sort(sortOption)
       .limit(limitNum)
       .skip(skip);
 
     const total = await Product.countDocuments(query);
-
-  
 
     res.json({
       success: true,
@@ -330,7 +328,7 @@ export const getProduct = async (req, res) => {
 
     product = await Product.findOne({ slug: req.params.slug })
       .populate("user", "name email phone address role")
-      .populate("category", "name" )
+      .populate("category", "name")
       .populate("bids.user", "name email");
 
     if (!product) {
@@ -340,9 +338,19 @@ export const getProduct = async (req, res) => {
       });
     }
 
+    // Fetch related products from the same category
+    const relatedProduct = await Product.find({
+      category: product.category._id,
+      _id: { $ne: product._id }, // Exclude current product
+    })
+      .select("title description slug pricePerKg totalWeight images category")
+      .populate("category", "name")
+      .limit(4); // Limit to 4 related products
+
     res.json({
       success: true,
       product,
+      relatedProduct,
     });
   } catch (error) {
     res.status(500).json({
@@ -478,7 +486,7 @@ export const getAdminProducts = async (req, res) => {
     const products = await Product.find(query)
       .populate("user", "name email role")
       .populate("bids.user", "name email")
-      .populate("category", "name" )
+      .populate("category", "name")
       .sort({ createdAt: -1 })
       .limit(limitNum)
       .skip(skip);
