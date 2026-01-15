@@ -7,13 +7,17 @@ import {
   getProduct,
   updateMyProduct,
   deleteMyProduct,
-
   getAdminProducts,
   getAllProducts,
 } from "../controllers/productController.js";
 import { protect, authorize } from "../middleware/auth.js";
 import upload from "../middleware/upload.js";
-import { acceptBid, getMyBids, getMyWins, getProductWithBids, placeBid } from "../controllers/bidController.js";
+import {
+  acceptBid,
+  getMyBids,
+  getMyWins,
+  placeBid,
+} from "../controllers/bidController.js";
 
 const router = express.Router();
 
@@ -38,6 +42,5 @@ router.get("/:slug", getProduct);
 
 router.post("/:id/bid", protect, placeBid);
 router.put("/:productId/accept-bid/:bidId", protect, acceptBid);
-router.get("/:id/with-bids", protect, getProductWithBids);
 
 export default router;

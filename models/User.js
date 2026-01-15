@@ -32,7 +32,7 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["seller", "buyer"],
+      enum: ["seller", "buyer", "admin", "super-admin"],
       required: true,
     },
     password: {
@@ -79,7 +79,7 @@ userSchema.methods.getJwtToken = function () {
   return jwt.sign(
     { id: this._id, role: this.role },
     process.env.JWT_SECRET,
-    { expiresIn: '30d' } // Fixed: use direct value
+    { expiresIn: "30d" } // Fixed: use direct value
   );
 };
 

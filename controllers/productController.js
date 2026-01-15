@@ -354,10 +354,24 @@ export const getProduct = async (req, res) => {
       .populate("category", "name")
       .limit(4); // Limit to 4 related products
 
+    // 🎯 CALCULATE TOP 5 BIDS
+    const bidsCopy = [...product.bids];
+    const topBids = bidsCopy
+      .filter((bid) => bid.status === "pending")
+      .sort((a, b) => {
+        if (product.postType === "sell") {
+          return b.bidAmount - a.bidAmount; // High to low
+        } else {
+          return a.bidAmount - b.bidAmount; // Low to high
+        }
+      })
+      .slice(0, 5);
+
     res.json({
       success: true,
       product,
       relatedProduct,
+      topBids,
     });
   } catch (error) {
     res.status(500).json({
