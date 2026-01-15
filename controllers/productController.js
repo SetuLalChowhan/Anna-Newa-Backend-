@@ -218,6 +218,11 @@ export const getAllProducts = async (req, res) => {
       query.postType = postType;
     }
 
+    // 🎯 NEW LOGIC: Only show active and non-expired products
+    // This ensures completed or expired products don't show up in the main listing
+    query.status = "active";
+    query.expiryDate = { $gt: new Date() };
+
     // Determine sort
     let sortOption = { createdAt: -1 }; // default: latest
     if (sort === "oldest") {
@@ -342,6 +347,8 @@ export const getProduct = async (req, res) => {
     const relatedProduct = await Product.find({
       category: product.category._id,
       _id: { $ne: product._id }, // Exclude current product
+      status: "active", // Only show active products
+      expiryDate: { $gt: new Date() }, // Only show products that haven't expired
     })
       .select("title description slug pricePerKg totalWeight images category")
       .populate("category", "name")
