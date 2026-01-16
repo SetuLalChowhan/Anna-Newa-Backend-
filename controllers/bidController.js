@@ -197,6 +197,14 @@ export const acceptBid = async (req, res) => {
       });
     }
 
+    // 🎯 HARD LOGIC: PREVENT MULTIPLE ACCEPTANCE
+    if (product.status === "sold" || product.status === "purchased") {
+      return res.status(400).json({
+        success: false,
+        message: "A bid has already been accepted for this product",
+      });
+    }
+
     const bid = product.bids.id(bidId);
     if (!bid) {
       return res.status(404).json({

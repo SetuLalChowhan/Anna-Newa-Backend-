@@ -125,6 +125,21 @@ export const updateOrderStatus = async (req, res) => {
       });
     }
 
+    // 🎯 HARD LOGIC: TERMINAL STATUS PROTECTION
+    if (order.deliveryStatus === "Delivered") {
+      return res.status(400).json({
+        success: false,
+        message: "Order is already delivered and cannot be changed",
+      });
+    }
+
+    if (order.deliveryStatus === "Cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot update status of a cancelled order",
+      });
+    }
+
     if (orderStatus) {
       order.orderStatus = orderStatus;
       if (orderStatus === "Completed") {
@@ -180,6 +195,21 @@ export const updateDeliveryStatus = async (req, res) => {
       return res.status(403).json({
         success: false,
         message: "Not authorized to update delivery status",
+      });
+    }
+
+    // 🎯 HARD LOGIC: TERMINAL STATUS PROTECTION
+    if (order.deliveryStatus === "Delivered") {
+      return res.status(400).json({
+        success: false,
+        message: "Order is already delivered and cannot be changed",
+      });
+    }
+
+    if (order.deliveryStatus === "Cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot update status of a cancelled order",
       });
     }
 
