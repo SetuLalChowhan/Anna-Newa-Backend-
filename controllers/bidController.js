@@ -339,69 +339,46 @@ export const acceptBid = async (req, res) => {
 export const getMyBids = async (req, res) => {
   try {
     const { status, page = 1, limit = 10 } = req.query;
-
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
 
-    // Find products where user has placed bids
-    const query = {
-      "bids.user": req.user.id,
-    };
-
+    // 1. Find products where the user has placed at least one bid
+    const query = { "bids.user": req.user.id };
     if (status && status !== "all") {
       query.status = status;
     }
 
     const products = await Product.find(query)
-      .populate("user", "name email phone address")
-      .populate("bids.user", "name email")
-      .populate("bidWinner.user", "name email")
       .sort({ createdAt: -1 })
       .limit(limitNum)
-      .skip(skip);
+      .skip(skip)
+      .lean(); // Use lean for faster performance
 
-    // Filter and format bids for the current user - SAFELY
-    const biddingHistory = products
-      .map((product) => {
-        // Safely filter user's bids
-        const userBids = product.bids.filter((bid) => {
-          // Check if bid.user exists and has _id
-          return (
-            bid.user && bid.user._id && bid.user._id.toString() === req.user.id
-          );
-        });
+    // 2. Format into a simplified single array
+    const biddingHistory = products.map((product) => {
+      // Find the user's specific bids on this product
+      const userBids = product.bids.filter(
+        (bid) => bid.user?.toString() === req.user.id
+      );
 
-        if (userBids.length === 0) return null; // Skip if no valid bids found
+      // Get the highest/latest bid amount from the user
+      const myBidPrice =
+        userBids.length > 0 ? Math.max(...userBids.map((b) => b.bidAmount)) : 0;
 
-        const latestBid = userBids[userBids.length - 1]; // Get latest bid
+      // Check if user is the winner
+      const isWinner = product.bidWinner?.user?.toString() === req.user.id;
 
-        // Safely check if user is winner
-        const isWinner =
-          product.bidWinner &&
-          product.bidWinner.user &&
-          product.bidWinner.user._id &&
-          product.bidWinner.user._id.toString() === req.user.id;
-
-        return {
-          product: {
-            _id: product._id,
-            title: product.title,
-            slug: product.slug,
-            images: product.images,
-            pricePerKg: product.pricePerKg,
-            totalWeight: product.totalWeight,
-            status: product.status,
-            user: product.user,
-          },
-          myBid: latestBid,
-          allMyBids: userBids,
-          isWinner: isWinner,
-          bidWinner: product.bidWinner,
-          totalBidsOnProduct: product.bids.length,
-        };
-      })
-      .filter((item) => item !== null); // Remove null entries
+      return {
+        _id: product._id,
+        name: product.title,
+        image: product.images[0]?.url || null,
+        basePrice: product.pricePerKg,
+        myBidPrice: myBidPrice,
+        status: product.status,
+        isWinner: !!isWinner, // Returns true/false
+      };
+    });
 
     const total = await Product.countDocuments(query);
 
@@ -412,7 +389,7 @@ export const getMyBids = async (req, res) => {
         page: pageNum,
         limit: limitNum,
         totalPages: Math.ceil(total / limitNum),
-        totalProducts: total,
+        totalItems: total,
       },
     });
   } catch (error) {
@@ -432,26 +409,42 @@ export const getMyWins = async (req, res) => {
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
 
-    // Find products where user is the bid winner
+    // Find products where the user is the confirmed winner
     const query = {
       "bidWinner.user": req.user.id,
       status: "sold",
     };
 
-    console.log(query);
-
     const products = await Product.find(query)
-      .populate("user", "name email phone address")
-      .populate("bidWinner.user", "name email phone")
-      .sort({ soldAt: -1 })
+      .populate("user", "name email phone") // The seller's details
+      .sort({ updatedAt: -1 })
       .limit(limitNum)
-      .skip(skip);
+      .skip(skip)
+      .lean();
+
+    // Format into a simple array
+    const wonProducts = products.map((product) => {
+      return {
+        _id: product._id,
+        name: product.title,
+        image: product.images[0]?.url || null,
+        basePrice: product.pricePerKg,
+        winningBidPrice: product.bidWinner?.bidAmount,
+        totalWeight: product.totalWeight,
+        seller: {
+          name: product.user?.name,
+          phone: product.user?.phone,
+        },
+        wonAt: product.bidWinner?.acceptedAt || product.updatedAt,
+        status: product.status,
+      };
+    });
 
     const total = await Product.countDocuments(query);
 
     res.json({
       success: true,
-      wonProducts: products,
+      wonProducts,
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -460,6 +453,7 @@ export const getMyWins = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error("Error in getMyWins:", error);
     res.status(500).json({
       success: false,
       message: error.message,
