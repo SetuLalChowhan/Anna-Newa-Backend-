@@ -8,7 +8,11 @@ import {
   deleteProduct,
   getDashboardStats,
   updateProductStatus,
-} from "../controllers/adminController..js";
+} from "../controllers/adminController.js";
+import {
+  getSettings,
+  updateSettings,
+} from "../controllers/settingsController.js";
 import { protect, authorize } from "../middleware/auth.js";
 import { deleteOrder, getOrderStats } from "../controllers/orderController.js";
 
@@ -30,5 +34,9 @@ router.delete("/:orderId", deleteOrder);
 
 router.delete("/products/:productId", deleteProduct);
 router.put("/products/:productId/status", updateProductStatus);
+
+// Settings routes
+router.get("/settings", getSettings);
+router.put("/settings", updateSettings);
 
 export default router;

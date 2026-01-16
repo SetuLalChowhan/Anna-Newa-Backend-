@@ -14,6 +14,7 @@ import ArticleRouter from "./routes/article.js";
 import AiChatRouter from "./routes/aiRouter.js";
 import SystemInfoRoute from "./routes/systemInfoRoutes.js";
 import ContactRoute from "./routes/contactRoutes.js";
+import DashboardRoute from "./routes/dashboard.js";
 connectDatabase();
 const app = express();
 app.use(
@@ -37,6 +38,7 @@ app.use("/api/admin", AdminRouter);
 app.use("/api/ai", AiChatRouter);
 app.use("/api/system-info", SystemInfoRoute);
 app.use("/api/contact", ContactRoute);
+app.use("/api/dashboard", DashboardRoute);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

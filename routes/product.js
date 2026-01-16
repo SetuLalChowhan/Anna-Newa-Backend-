@@ -37,7 +37,7 @@ router.put(
   upload.array("images", 5),
   updateMyProduct
 );
-router.delete("/my-products/:id", protect, deleteMyProduct);
+router.delete("/my-product/:id", protect, deleteMyProduct);
 router.get("/:slug", getProduct);
 
 router.post("/:id/bid", protect, placeBid);

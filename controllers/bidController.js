@@ -2,6 +2,7 @@ import Product from "../models/Product.js";
 import User from "../models/User.js";
 import mongoose, { isValidObjectId } from "mongoose";
 import Order from "../models/Order.js";
+import Settings from "../models/Settings.js";
 import { emitNewBid } from "../utils/socket.js";
 
 export const placeBid = async (req, res) => {
@@ -231,9 +232,13 @@ export const acceptBid = async (req, res) => {
     product.status = product.postType === "sell" ? "sold" : "purchased";
     product.soldAt = new Date();
 
-    // 🎯 CALCULATE 2% COMPANY REVENUE
+    // 🎯 FETCH DYNAMIC COMMISSION RATE
+    const settings = await Settings.getSettings();
+    const commissionRateDecimal = settings.commissionRate / 100;
+
+    // 🎯 CALCULATE COMPANY REVENUE
     const totalPrice = product.totalWeight * bid.bidAmount;
-    const companyRevenue = totalPrice * 0.02; // 2% commission
+    const companyRevenue = totalPrice * commissionRateDecimal;
     const sellerEarning = totalPrice - companyRevenue;
 
     // Update product with company revenue
@@ -278,7 +283,7 @@ export const acceptBid = async (req, res) => {
       todaysOrders + 1
     ).padStart(4, "0")}`;
 
-    // Create order with 2% commission
+    // Create order with dynamic commission
     const orderData = {
       orderNumber: orderNumber,
       product: productId,
@@ -292,7 +297,7 @@ export const acceptBid = async (req, res) => {
       companyRevenue: parseFloat(companyRevenue.toFixed(2)),
       sellerEarning: parseFloat(sellerEarning.toFixed(2)),
       buyerPayment: totalPrice,
-      commissionRate: 0.02, // 2%
+      commissionRate: commissionRateDecimal,
       paymentMethod: bid.paymentMethod,
       sellerLocation: product.user.address,
       buyerLocation: bid.user.address,

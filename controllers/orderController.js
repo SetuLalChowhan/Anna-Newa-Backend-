@@ -1,4 +1,5 @@
 import Order from "../models/Order.js";
+import Settings from "../models/Settings.js";
 
 export const getMyOrders = async (req, res) => {
   try {
@@ -124,33 +125,23 @@ export const updateOrderStatus = async (req, res) => {
       });
     }
 
-    const updateData = {};
-
     if (orderStatus) {
-      updateData.orderStatus = orderStatus;
+      order.orderStatus = orderStatus;
       if (orderStatus === "Completed") {
-        updateData.deliveredAt = new Date();
+        order.deliveredAt = new Date();
       } else if (orderStatus === "Cancelled") {
-        updateData.cancelledAt = new Date();
-        updateData.cancellationReason =
-          cancellationReason || "Cancelled by admin";
+        order.cancelledAt = new Date();
+        order.cancellationReason = cancellationReason || "Cancelled by admin";
       }
     }
 
-    if (deliveryStatus) updateData.deliveryStatus = deliveryStatus;
-    if (paymentStatus) updateData.paymentStatus = paymentStatus;
-    if (notes) updateData.notes = notes;
+    if (deliveryStatus) order.deliveryStatus = deliveryStatus;
+    if (paymentStatus) order.paymentStatus = paymentStatus;
+    if (notes) order.notes = notes;
 
-    if (deliveryStatus === "Delivered") {
-      updateData.deliveredAt = new Date();
-      updateData.orderStatus = "Completed";
-    }
+    await order.save();
 
-    const updatedOrder = await Order.findByIdAndUpdate(
-      req.params.orderId,
-      updateData,
-      { new: true, runValidators: true }
-    )
+    const updatedOrder = await Order.findById(req.params.orderId)
       .populate("product", "title images slug")
       .populate("seller", "name email phone")
       .populate("buyer", "name email phone");
@@ -171,8 +162,7 @@ export const updateOrderStatus = async (req, res) => {
 
 export const updateDeliveryStatus = async (req, res) => {
   try {
-    const { deliveryStatus, trackingNumber, shippingProvider, notes } =
-      req.body;
+    const { deliveryStatus } = req.body;
 
     const order = await Order.findById(req.params.orderId);
 
@@ -183,33 +173,23 @@ export const updateDeliveryStatus = async (req, res) => {
       });
     }
 
-    // ✅ FIXED: Allow both ADMIN and SELLER (order owner)
     const isAdmin = req.user.role === "admin";
     const isSeller = order.seller.toString() === req.user.id;
 
     if (!isAdmin && !isSeller) {
       return res.status(403).json({
         success: false,
-        message: "Not authorized to update delivery status for this order",
+        message: "Not authorized to update delivery status",
       });
     }
 
-    const updateData = { deliveryStatus };
+    order.deliveryStatus = deliveryStatus;
 
-    if (trackingNumber) updateData.trackingNumber = trackingNumber;
-    if (shippingProvider) updateData.shippingProvider = shippingProvider;
-    if (notes) updateData.notes = notes;
+    // The pre-save middleware in Order.js will handle orderStatus = 'Completed'
+    // and wallet crediting if deliveryStatus is 'Delivered'
+    await order.save();
 
-    if (deliveryStatus === "Delivered") {
-      updateData.deliveredAt = new Date();
-      updateData.orderStatus = "Completed";
-    }
-
-    const updatedOrder = await Order.findByIdAndUpdate(
-      req.params.orderId,
-      updateData,
-      { new: true, runValidators: true }
-    )
+    const updatedOrder = await Order.findById(req.params.orderId)
       .populate("product", "title images slug")
       .populate("seller", "name email phone")
       .populate("buyer", "name email phone");
@@ -221,6 +201,54 @@ export const updateDeliveryStatus = async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating delivery status:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const updateShippingInfo = async (req, res) => {
+  try {
+    const { trackingNumber, shippingProvider, notes } = req.body;
+
+    const order = await Order.findById(req.params.orderId);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    const isAdmin = req.user.role === "admin";
+    const isSeller = order.seller.toString() === req.user.id;
+
+    if (!isAdmin && !isSeller) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to update shipping info",
+      });
+    }
+
+    if (trackingNumber) order.trackingNumber = trackingNumber;
+    if (shippingProvider) order.shippingProvider = shippingProvider;
+    if (notes) order.notes = notes;
+
+    await order.save();
+
+    const updatedOrder = await Order.findById(req.params.orderId)
+      .populate("product", "title images slug")
+      .populate("seller", "name email phone")
+      .populate("buyer", "name email phone");
+
+    res.json({
+      success: true,
+      message: "Shipping information updated successfully",
+      order: updatedOrder,
+    });
+  } catch (error) {
+    console.error("Error updating shipping info:", error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -316,18 +344,16 @@ export const cancelOrder = async (req, res) => {
       });
     }
 
-    const updatedOrder = await Order.findByIdAndUpdate(
-      req.params.orderId,
-      {
-        orderStatus: "Cancelled",
-        deliveryStatus: "Cancelled",
-        paymentStatus: "Refunded",
-        cancelledAt: new Date(),
-        cancellationReason:
-          cancellationReason || `Cancelled by ${isSeller ? "seller" : "buyer"}`,
-      },
-      { new: true, runValidators: true }
-    )
+    order.orderStatus = "Cancelled";
+    order.deliveryStatus = "Cancelled";
+    order.paymentStatus = "Refunded";
+    order.cancelledAt = new Date();
+    order.cancellationReason =
+      cancellationReason || `Cancelled by ${isSeller ? "seller" : "buyer"}`;
+
+    await order.save();
+
+    const updatedOrder = await Order.findById(req.params.orderId)
       .populate("product", "title images slug")
       .populate("seller", "name email phone")
       .populate("buyer", "name email phone");
@@ -516,6 +542,9 @@ export const deleteOrder = async (req, res) => {
 
 export const getOrderStats = async (req, res) => {
   try {
+    const settings = await Settings.getSettings();
+    const currentCommission = `${settings.commissionRate}%`;
+
     // Total orders count
     const totalOrders = await Order.countDocuments();
     const completedOrders = await Order.countDocuments({
@@ -528,7 +557,7 @@ export const getOrderStats = async (req, res) => {
       orderStatus: "Cancelled",
     });
 
-    // 🎯 SIMPLE REVENUE CALCULATION - 2% COMMISSION
+    // 🎯 REVENUE CALCULATION
     const revenueStats = await Order.aggregate([
       { $match: { orderStatus: "Completed" } },
       {
@@ -540,7 +569,7 @@ export const getOrderStats = async (req, res) => {
           // 🎯 COMPANY EARNINGS (2% of every order)
           totalCompanyRevenue: { $sum: "$companyRevenue" },
 
-          // Total paid to sellers (98% of sales)
+          // Total paid to sellers
           totalSellerEarnings: { $sum: "$sellerEarning" },
 
           // Order counts
@@ -568,7 +597,7 @@ export const getOrderStats = async (req, res) => {
             month: { $month: "$createdAt" },
           },
           monthlySales: { $sum: "$totalPrice" },
-          monthlyRevenue: { $sum: "$companyRevenue" }, // 2% commission
+          monthlyRevenue: { $sum: "$companyRevenue" },
           orders: { $sum: 1 },
         },
       },
@@ -593,7 +622,7 @@ export const getOrderStats = async (req, res) => {
         $group: {
           _id: null,
           todaySales: { $sum: "$totalPrice" },
-          todayRevenue: { $sum: "$companyRevenue" }, // 2% commission
+          todayRevenue: { $sum: "$companyRevenue" },
           todayOrders: { $sum: 1 },
         },
       },
@@ -621,23 +650,23 @@ export const getOrderStats = async (req, res) => {
           // Total money processed
           totalSales: stats.totalSales,
 
-          // 🎯 COMPANY EARNINGS (2% commission)
+          // 🎯 COMPANY EARNINGS
           totalRevenue: stats.totalCompanyRevenue,
 
-          // Paid to sellers (98%)
+          // Paid to sellers
           totalPaidToSellers: stats.totalSellerEarnings,
 
           // Average order value
           averageOrder: stats.averageOrderValue,
 
           // Commission rate
-          commissionRate: "2%",
+          commissionRate: currentCommission,
         },
 
         // 📅 TODAY'S PERFORMANCE
         today: {
           sales: todayData.todaySales,
-          revenue: todayData.todayRevenue, // 2% of today's sales
+          revenue: todayData.todayRevenue,
           orders: todayData.todayOrders,
         },
 
@@ -646,7 +675,7 @@ export const getOrderStats = async (req, res) => {
           year: month._id.year,
           month: month._id.month,
           sales: month.monthlySales,
-          revenue: month.monthlyRevenue, // 2% commission
+          revenue: month.monthlyRevenue,
           orders: month.orders,
         })),
       },

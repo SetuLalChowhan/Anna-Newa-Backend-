@@ -55,6 +55,26 @@ const userSchema = new mongoose.Schema(
     resetPasswordExpire: Date,
     resetKey: String, // For reset password verification
     resetKeyExpire: Date,
+    wallet: {
+      balance: {
+        type: Number,
+        default: 0,
+      },
+      transactions: [
+        {
+          amount: Number,
+          type: {
+            type: String,
+            enum: ["credit", "debit"],
+          },
+          description: String,
+          createdAt: {
+            type: Date,
+            default: Date.now,
+          },
+        },
+      ],
+    },
   },
   {
     timestamps: true,
