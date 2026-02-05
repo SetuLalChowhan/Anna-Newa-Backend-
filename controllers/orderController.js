@@ -32,7 +32,14 @@ export const getMyOrders = async (req, res) => {
       query.paymentStatus = paymentStatus;
 
     const orders = await Order.find(query)
-      .populate("product", "title images slug category")
+      .populate({
+        path: "product",
+        select: "title images slug category",
+        populate: {
+          path: "category",
+          select: "name",
+        },
+      })
       .populate("seller", "name email phone")
       .populate("buyer", "name email phone")
       .sort({ createdAt: -1 })
@@ -63,7 +70,14 @@ export const getMyOrders = async (req, res) => {
 export const getOrder = async (req, res) => {
   try {
     const order = await Order.findById(req.params.orderId)
-      .populate("product", "title images slug description category")
+      .populate({
+        path: "product",
+        select: "title images slug description category",
+        populate: {
+          path: "category",
+          select: "name",
+        },
+      })
       .populate("seller", "name email phone address")
       .populate("buyer", "name email phone address");
 
@@ -312,7 +326,7 @@ export const updatePaymentStatus = async (req, res) => {
     const updatedOrder = await Order.findByIdAndUpdate(
       req.params.orderId,
       { paymentStatus },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     )
       .populate("product", "title images slug")
       .populate("seller", "name email phone")
@@ -443,7 +457,7 @@ export const addOrderReview = async (req, res) => {
         review,
         reviewedAt: new Date(),
       },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     )
       .populate("product", "title images slug")
       .populate("seller", "name email phone")
@@ -490,7 +504,14 @@ export const getAllOrders = async (req, res) => {
     if (buyerId) query.buyer = buyerId;
 
     const orders = await Order.find(query)
-      .populate("product", "title images slug category")
+      .populate({
+        path: "product",
+        select: "title images slug category",
+        populate: {
+          path: "category",
+          select: "name",
+        },
+      })
       .populate("seller", "name email phone")
       .populate("buyer", "name email phone")
       .sort({ createdAt: -1 })
