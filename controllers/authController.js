@@ -1,6 +1,9 @@
-import User from '../models/User.js';
-import { sendEmail, emailTemplates } from '../utils/sendEmail.js';
-import { uploadToCloudinary, deleteFromCloudinary } from '../utils/cloudinaryUpload.js';
+import User from "../models/User.js";
+import { sendEmail, emailTemplates } from "../utils/sendEmail.js";
+import {
+  uploadToCloudinary,
+  deleteFromCloudinary,
+} from "../utils/cloudinaryUpload.js";
 
 // Set JWT token in cookie
 const sendToken = (user, res, message) => {
@@ -9,31 +12,35 @@ const sendToken = (user, res, message) => {
   const options = {
     expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: true, // Always true for modern browsers to handle cross-site cookies, or at least in production
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   };
 
-  res.status(200).cookie('token', token, options).json({
-    success: true,
-    message,
-    user: {
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      profilePicture: user.profilePicture,
-    },
-  });
+  res
+    .status(200)
+    .cookie("token", token, options)
+    .json({
+      success: true,
+      message,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        profilePicture: user.profilePicture,
+      },
+    });
 };
 
 export const register = async (req, res) => {
   try {
-    const { name, email, phone, address, role, password, confirm_password } = req.body;
+    const { name, email, phone, address, role, password, confirm_password } =
+      req.body;
 
     if (password !== confirm_password) {
       return res.status(400).json({
         success: false,
-        message: 'Passwords do not match',
+        message: "Passwords do not match",
       });
     }
 
@@ -41,7 +48,7 @@ export const register = async (req, res) => {
     if (existingUser) {
       return res.status(400).json({
         success: false,
-        message: 'User already exists',
+        message: "User already exists",
       });
     }
 
@@ -59,13 +66,13 @@ export const register = async (req, res) => {
 
     await sendEmail({
       email: user.email,
-      subject: 'Email Verification - Annanewa Farming Media',
+      subject: "Email Verification - Annanewa Farming Media",
       html: emailTemplates.verification(user.name, verificationToken),
     });
 
     res.status(201).json({
       success: true,
-      message: 'Registration successful. Check email for verification code.',
+      message: "Registration successful. Check email for verification code.",
     });
   } catch (error) {
     res.status(500).json({
@@ -88,7 +95,7 @@ export const verifyEmail = async (req, res) => {
     if (!user) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid or expired code',
+        message: "Invalid or expired code",
       });
     }
 
@@ -97,7 +104,7 @@ export const verifyEmail = async (req, res) => {
     user.verificationTokenExpire = undefined;
     await user.save();
 
-    sendToken(user, res, 'Email verified successfully');
+    sendToken(user, res, "Email verified successfully");
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -113,27 +120,27 @@ export const login = async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide email and password',
+        message: "Please provide email and password",
       });
     }
 
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email }).select("+password");
 
     if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid credentials',
+        message: "Invalid credentials",
       });
     }
 
     if (!user.isVerified) {
       return res.status(401).json({
         success: false,
-        message: 'Please verify your email first',
+        message: "Please verify your email first",
       });
     }
 
-    sendToken(user, res, 'Login successful');
+    sendToken(user, res, "Login successful");
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -143,13 +150,17 @@ export const login = async (req, res) => {
 };
 
 export const logout = async (req, res) => {
-  res.cookie('token', null, {
-    expires: new Date(Date.now()),
-    httpOnly: true,
-  }).json({
-    success: true,
-    message: 'Logged out successfully',
-  });
+  res
+    .cookie("token", null, {
+      expires: new Date(Date.now()),
+      httpOnly: true,
+      secure: true,
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    })
+    .json({
+      success: true,
+      message: "Logged out successfully",
+    });
 };
 
 export const forgotPassword = async (req, res) => {
@@ -160,7 +171,7 @@ export const forgotPassword = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found',
+        message: "User not found",
       });
     }
 
@@ -170,13 +181,13 @@ export const forgotPassword = async (req, res) => {
     // Send email with reset code
     await sendEmail({
       email: user.email,
-      subject: 'Password Reset - Annanewa Farming Media',
+      subject: "Password Reset - Annanewa Farming Media",
       html: emailTemplates.resetPassword(user.name, resetToken),
     });
 
     res.json({
       success: true,
-      message: 'Reset code sent to email',
+      message: "Reset code sent to email",
     });
   } catch (error) {
     res.status(500).json({
@@ -199,21 +210,22 @@ export const verifyResetCode = async (req, res) => {
     if (!user) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid or expired reset code',
+        message: "Invalid or expired reset code",
       });
     }
 
     // Generate a reset key for the final reset step
-    const resetKey = Math.random().toString(36).substring(2, 15) + 
-                    Math.random().toString(36).substring(2, 15);
-    
+    const resetKey =
+      Math.random().toString(36).substring(2, 15) +
+      Math.random().toString(36).substring(2, 15);
+
     user.resetKey = resetKey;
     user.resetKeyExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
     await user.save();
 
     res.json({
       success: true,
-      message: 'Reset code verified successfully',
+      message: "Reset code verified successfully",
       resetKey: resetKey, // Send this key for the final reset step
     });
   } catch (error) {
@@ -231,7 +243,7 @@ export const resendOTP = async (req, res) => {
     if (!email || !type) {
       return res.status(400).json({
         success: false,
-        message: 'Email and type are required',
+        message: "Email and type are required",
       });
     }
 
@@ -239,7 +251,7 @@ export const resendOTP = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found',
+        message: "User not found",
       });
     }
 
@@ -247,25 +259,23 @@ export const resendOTP = async (req, res) => {
     let subject;
     let template;
 
-    if (type === 'verification') {
+    if (type === "verification") {
       // Resend verification OTP
       if (user.isVerified) {
         return res.status(400).json({
           success: false,
-          message: 'Email is already verified',
+          message: "Email is already verified",
         });
       }
-      
+
       otp = user.getVerificationToken();
-      subject = 'Email Verification - Annanewa Farming Media';
+      subject = "Email Verification - Annanewa Farming Media";
       template = emailTemplates.verification(user.name, otp);
-      
-    } else if (type === 'reset') {
+    } else if (type === "reset") {
       // Resend password reset OTP
       otp = user.getResetPasswordToken();
-      subject = 'Password Reset - Annanewa Farming Media';
+      subject = "Password Reset - Annanewa Farming Media";
       template = emailTemplates.resetPassword(user.name, otp);
-      
     } else {
       return res.status(400).json({
         success: false,
@@ -287,7 +297,6 @@ export const resendOTP = async (req, res) => {
       message: `OTP sent successfully to ${email}`,
       type: type,
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -303,7 +312,7 @@ export const resetPassword = async (req, res) => {
     if (password !== confirm_password) {
       return res.status(400).json({
         success: false,
-        message: 'Passwords do not match',
+        message: "Passwords do not match",
       });
     }
 
@@ -316,7 +325,7 @@ export const resetPassword = async (req, res) => {
     if (!user) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid or expired reset key',
+        message: "Invalid or expired reset key",
       });
     }
 
@@ -330,7 +339,7 @@ export const resetPassword = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Password reset successful',
+      message: "Password reset successful",
     });
   } catch (error) {
     res.status(500).json({
@@ -343,7 +352,7 @@ export const resetPassword = async (req, res) => {
 export const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
-    
+
     res.json({
       success: true,
       user: {
@@ -372,12 +381,12 @@ export const updateProfile = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.user.id,
       { name, phone, address },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
 
     res.json({
       success: true,
-      message: 'Profile updated successfully',
+      message: "Profile updated successfully",
       user: {
         id: user._id,
         name: user.name,
@@ -401,20 +410,20 @@ export const updateProfilePicture = async (req, res) => {
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: 'Please upload an image',
+        message: "Please upload an image",
       });
     }
 
     const user = await User.findById(req.user.id);
-    
+
     // Upload to Cloudinary
     const result = await uploadToCloudinary(req.file.buffer);
-    
+
     // Delete old image
     if (user.profilePicture?.public_id) {
       await deleteFromCloudinary(user.profilePicture.public_id);
     }
-    
+
     // Update user
     user.profilePicture = {
       public_id: result.public_id,
@@ -424,10 +433,9 @@ export const updateProfilePicture = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Profile picture updated',
+      message: "Profile picture updated",
       profilePicture: user.profilePicture,
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -444,14 +452,14 @@ export const resendVerification = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found',
+        message: "User not found",
       });
     }
 
     if (user.isVerified) {
       return res.status(400).json({
         success: false,
-        message: 'Email already verified',
+        message: "Email already verified",
       });
     }
 
@@ -460,13 +468,13 @@ export const resendVerification = async (req, res) => {
 
     await sendEmail({
       email: user.email,
-      subject: 'Email Verification - Annanewa Farming Media',
+      subject: "Email Verification - Annanewa Farming Media",
       html: emailTemplates.verification(user.name, verificationToken),
     });
 
     res.json({
       success: true,
-      message: 'Verification code sent',
+      message: "Verification code sent",
     });
   } catch (error) {
     res.status(500).json({
