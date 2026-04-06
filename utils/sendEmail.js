@@ -2,7 +2,7 @@ import transporter from '../config/nodemailer.js';
 
 export const sendEmail = async (options) => {
   const message = {
-    from: process.env.SMTP_USER,
+    from: "setulalchowhan@gmail.com",
     to: options.email,
     subject: options.subject,
     html: options.html,
